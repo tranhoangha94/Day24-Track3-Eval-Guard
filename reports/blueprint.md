@@ -1,6 +1,7 @@
 # CI/CD Blueprint: RAG Eval + Guardrail Stack
 
-**Sinh viên:** Lab 24 Student  
+**Sinh viên:** Trần Hoàng Hà
+**Mã Sinh viên:** 2A202600612
 **Ngày:** 30/06/2026
 
 ---
