@@ -36,7 +36,7 @@ def check_day18_files() -> bool:
 
 def build_pipeline():
     from src.m1_chunking import load_documents, chunk_hierarchical
-    from src.m2_search import HybridSearch
+    from src.m2_search import HybridSearch, BM25Search
     from src.m3_rerank import CrossEncoderReranker
     from src.m5_enrichment import enrich_chunks
     from config import RERANK_TOP_K
@@ -62,9 +62,16 @@ def build_pipeline():
 
     print("\n[2/3] Indexing (BM25 + Dense)...")
     t0 = time.time()
-    search = HybridSearch()
-    search.index(all_chunks)
-    print(f"  ✓ Indexed {len(all_chunks)} chunks ({time.time()-t0:.1f}s)")
+    try:
+        search = HybridSearch()
+        search.index(all_chunks)
+        print(f"  ✓ Indexed {len(all_chunks)} chunks ({time.time()-t0:.1f}s)")
+    except Exception as e:
+        print(f"  ⚠️  Qdrant unavailable ({e}) — falling back to BM25-only search")
+        bm25 = BM25Search()
+        bm25.index(all_chunks)
+        search = bm25
+        print(f"  ✓ BM25 indexed {len(all_chunks)} chunks ({time.time()-t0:.1f}s)")
 
     print("\n[3/3] Loading reranker...")
     t0 = time.time()
@@ -77,8 +84,11 @@ def build_pipeline():
 def run_query(q: str, search, reranker, top_k: int) -> tuple[str, list[str]]:
     from config import OPENAI_API_KEY
 
-    results = search.search(q)
-    docs    = [{"text": r.text, "score": r.score, "metadata": r.metadata} for r in results]
+    if hasattr(search, "search"):
+        results = search.search(q)
+    else:
+        results = search.search(q, top_k=top_k)
+    docs = [{"text": r.text, "score": r.score, "metadata": r.metadata} for r in results]
     reranked = reranker.rerank(q, docs, top_k=top_k)
     contexts = [r.text for r in reranked] if reranked else [r.text for r in results[:3]]
 

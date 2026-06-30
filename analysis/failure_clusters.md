@@ -1,7 +1,7 @@
 # Failure Cluster Analysis — Phase A
 
-**Sinh viên:** [Họ Tên]  
-**Ngày:** [Ngày làm lab]
+**Sinh viên:** Lab 24 Student  
+**Ngày:** 30/06/2026
 
 ---
 
@@ -9,11 +9,11 @@
 
 | Metric | factual | multi_hop | adversarial |
 |---|---|---|---|
-| faithfulness | ? | ? | ? |
-| answer_relevancy | ? | ? | ? |
-| context_precision | ? | ? | ? |
-| context_recall | ? | ? | ? |
-| **avg_score** | ? | ? | ? |
+| faithfulness | 0.975 | 0.413 | 0.700 |
+| answer_relevancy | 0.834 | 0.627 | 0.596 |
+| context_precision | 0.958 | 0.983 | 0.967 |
+| context_recall | 0.800 | 0.829 | 0.683 |
+| **avg_score** | **0.892** | **0.713** | **0.737** |
 
 ---
 
@@ -21,34 +21,38 @@
 
 | Rank | Distribution | Question | avg_score | worst_metric |
 |---|---|---|---|---|
-| 1 | | | | |
-| 2 | | | | |
-| ... | | | | |
+| 1 | adversarial | Bao lâu phải đổi mật khẩu một lần? | 0.375 | faithfulness |
+| 2 | adversarial | Nhân viên thử việc có được nghỉ phép năm không? | 0.375 | faithfulness |
+| 3 | multi_hop | Manager 12 năm: phụ cấp + phép năm v2024 | 0.375 | faithfulness |
+| 4 | adversarial | VPN cá nhân (NordVPN) khi WFH? | 0.417 | faithfulness |
+| 5 | multi_hop | Senior 9 năm: phép + lương | 0.483 | answer_relevancy |
+| 6 | multi_hop | So sánh mật khẩu v1.0 vs v2.0 | 0.500 | faithfulness |
+| 7 | multi_hop | Tạm ứng 8 triệu + phí phạt quá hạn | 0.500 | faithfulness |
+| 8 | factual | Mua thiết bị 55 triệu — ai phê duyệt? | 0.536 | context_recall |
+| 9 | multi_hop | So sánh bảo hiểm thử việc vs chính thức | 0.563 | answer_relevancy |
+| 10 | factual | Bảo hiểm PVI hạn mức bao nhiêu? | 0.591 | context_recall |
 
 ---
 
 ## 3. Failure Cluster Matrix
 
-*(Mỗi ô = số câu có worst_metric = row, thuộc distribution = col)*
-
 | worst_metric | factual | multi_hop | adversarial | Total |
 |---|---|---|---|---|
-| faithfulness | | | | |
-| answer_relevancy | | | | |
-| context_precision | | | | |
-| context_recall | | | | |
+| faithfulness | 0 | 15 | 3 | 18 |
+| answer_relevancy | 13 | 4 | 1 | 18 |
+| context_precision | 1 | 0 | 0 | 1 |
+| context_recall | 6 | 1 | 6 | 13 |
 
 ---
 
 ## 4. Dominant Failure Analysis
 
-**Dominant distribution:** [factual / multi_hop / adversarial]  
-**Dominant metric:** [faithfulness / answer_relevancy / context_precision / context_recall]
+**Dominant distribution:** factual (tied với multi_hop, 20 failures mỗi loại)  
+**Dominant metric:** faithfulness (18/50 câu có worst_metric = faithfulness)
 
 **Lý do phân tích:**
 
-> [Viết 3-5 câu giải thích tại sao distribution này hay bị failure, 
->  tại sao metric này thấp nhất trong corpus HR policy tiếng Việt]
+Pipeline yếu nhất ở **faithfulness** — LLM thường hallucinate khi cần kết hợp nhiều tài liệu (multi-hop) hoặc khi gặp câu hỏi bẫy (adversarial). Multi-hop có faithfulness trung bình chỉ 0.41 vì cần tính toán/suy luận qua nhiều policy. Adversarial có 3/10 câu worst ở faithfulness (version conflicts mật khẩu, VPN). Factual có answer_relevancy thấp ở nhiều câu do trả lời không đủ chi tiết dù context recall tốt.
 
 ---
 
@@ -56,15 +60,13 @@
 
 | Metric yếu | Root cause | Suggested fix |
 |---|---|---|
-| faithfulness | LLM hallucinating | |
-| context_recall | Missing relevant chunks | |
-| context_precision | Too many irrelevant chunks | |
-| answer_relevancy | Answer doesn't match question | |
+| faithfulness | LLM hallucinating trên multi-hop/adversarial | Tighten system prompt, lower temperature, cite sources |
+| context_recall | Missing relevant chunks (factual) | Improve chunking, thêm metadata filter version |
+| context_precision | Too many irrelevant chunks | Đã tốt (0.96+) — giữ reranking |
+| answer_relevancy | Answer không khớp câu hỏi đầy đủ | Cải thiện prompt template, yêu cầu trả lời từng phần |
 
 ---
 
 ## 6. Nhận xét về Adversarial Distribution
 
-> [So sánh avg_score của adversarial vs factual vs multi_hop.
->  Pipeline có bị "nhầm" bởi version conflicts (v2023 vs v2024) không?
->  Câu nào trong bottom 10 rơi vào adversarial? Tại sao?]
+Adversarial avg_score (0.737) thấp hơn factual (0.892) nhưng cao hơn multi_hop (0.713). Pipeline bị nhầm bởi version conflicts: Q44 (mật khẩu v1 vs v2), Q50 (VPN cá nhân bị cho phép). 4/10 bottom-10 là adversarial — đúng kỳ vọng stress-test. Cần metadata filter để ưu tiên policy version mới nhất (v2024, v2.0).
